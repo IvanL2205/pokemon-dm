@@ -1,46 +1,38 @@
-import { LitElement, html } from 'lit-element';
-import { getComponentSharedStyles } from '@bbva-web-components/bbva-core-lit-helpers';
-import styles from './pokemon-dm.css.js';
+import { LitElement } from 'lit-element';
 
-/**
- * ![LitElement component](https://img.shields.io/badge/litElement-component-blue.svg)
- *
- * This component ...
- *
- * Example:
- *
- * ```html
- *   <pokemon-dm></pokemon-dm>
- * ```
- */
 export class PokemonDm extends LitElement {
-  static get properties() {
-    return {
-      /**
-       * Description for property
-       */
-      name: {
-        type: String,
-      },
-    };
-  }
 
-  constructor() {
-    super();
-    this.name = 'Cells';
-  }
+  async fetchPokemonData() {
+    try {
+      
+      this.loading = true; 
 
-  static get styles() {
-    return [
-      styles,
-      getComponentSharedStyles('pokemon-dm-shared-styles'),
-    ];
-  }
+      const response = await fetch(
+        'https://pokeapi.co/api/v2/pokemon?offset=0&limit=50'
+      );
+      const data = await response.json();
 
-  render() {
-    return html`
-      <p>Welcome to ${this.name}</p>
-      <slot></slot>
-    `;
+      const detailedData = await Promise.all(
+        data.results.map((pokemon) =>
+          fetch(pokemon.url).then((res) => res.json())
+        )
+      );
+
+      const basePokemon = await Promise.all(
+        detailedData.map(async(pokemon) => {
+          const speciesResponse = await fetch(pokemon.species.url);
+          const speciesData = await speciesResponse.json();
+          return speciesData.evolves_from_species ? null : pokemon;
+        })
+      );
+
+      this.pokemonList = basePokemon.filter((pokemon) => pokemon !== null);
+      console.log(this.pokemonList);
+    } catch (error) {
+      console.error('Error fetching Pokémon data:', error);
+    }
+    finally {
+      this.loading = false; 
+    }
   }
 }
